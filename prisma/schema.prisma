@@ -1,0 +1,690 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// AUTH & USERS
+// ─────────────────────────────────────────────
+
+model User {
+  id                 Int            @id @default(autoincrement())
+  firstName          String         @map("first_name")
+  lastName           String         @map("last_name")
+  email              String         @unique
+  passwordHash       String         @map("password_hash")
+  phone              String?
+  emailVerified      Boolean        @default(false) @map("email_verified")
+  twoFactorEnabled   Boolean        @default(false) @map("two_factor_enabled")
+  avatar             String?
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+
+  companyUsers       CompanyUser[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// COMPANIES (TENANTS)
+// ─────────────────────────────────────────────
+
+model Company {
+  id                 Int            @id @default(autoincrement())
+  name               String
+  logo               String?  @db.LongText
+  email              String?
+  phone              String?
+  website            String?
+  address            String?
+  country            String?
+  currency           String         @default("LSL")
+  vatNumber          String?        @map("vat_number")
+  registrationNumber String?        @map("registration_number")
+  bankDetails        String?        @db.Text @map("bank_details")
+  enabledModules     Json           @default("[\"SALES\"]") @map("enabled_modules")
+  brandColor         String         @default("#111827") @map("brand_color")
+  brandBgColor       String         @default("#ffffff") @map("brand_bg_color")
+  brandFontColor     String         @default("#111827") @map("brand_font_color")
+  brandFontFamily    String         @default("'Segoe UI', Arial, sans-serif") @map("brand_font_family")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+
+  companyUsers       CompanyUser[]
+  suppliers          Supplier[]
+  rfqs               RFQ[]
+  purchaseOrders     PurchaseOrder[]
+  supplierInvoices   SupplierInvoice[]
+  contracts          Contract[]
+  clients            Client[]
+  products           Product[]
+  categories         Category[]
+  quotations         Quotation[]
+  invoices           Invoice[]
+  payments           Payment[]
+  receipts           Receipt[]
+  subscriptions      Subscription[]
+  auditLogs          AuditLog[]
+
+  @@map("companies")
+}
+
+// ─────────────────────────────────────────────
+// ROLES & PERMISSIONS
+// ─────────────────────────────────────────────
+
+model Role {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
+  description String?
+
+  companyUsers     CompanyUser[]
+  rolePermissions  RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  roleId       Int        @map("role_id")
+  permissionId Int        @map("permission_id")
+
+  role         Role       @relation(fields: [roleId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// ─────────────────────────────────────────────
+// COMPANY USERS (MANY-TO-MANY)
+// ─────────────────────────────────────────────
+
+model CompanyUser {
+  id        Int      @id @default(autoincrement())
+  companyId Int      @map("company_id")
+  userId    Int      @map("user_id")
+  roleId    Int      @map("role_id")
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  company   Company  @relation(fields: [companyId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  role      Role     @relation(fields: [roleId], references: [id])
+
+  @@unique([companyId, userId])
+  @@map("company_users")
+}
+
+// ─────────────────────────────────────────────
+// CLIENT CRM
+// ─────────────────────────────────────────────
+
+model Client {
+  id          Int      @id @default(autoincrement())
+  companyId   Int      @map("company_id")
+  companyName String   @map("company_name")
+  contactName String   @map("contact_name")
+  email       String?
+  phone       String?
+  address     String?
+  industry    String?
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  company     Company     @relation(fields: [companyId], references: [id])
+  quotations  Quotation[]
+  invoices    Invoice[]
+  payments    Payment[]
+  receipts    Receipt[]
+
+  @@map("clients")
+}
+
+// ─────────────────────────────────────────────
+// PRODUCT CATALOG
+// ─────────────────────────────────────────────
+
+model Category {
+  id          Int       @id @default(autoincrement())
+  companyId   Int       @map("company_id")
+  name        String
+  description String?
+
+  company     Company   @relation(fields: [companyId], references: [id])
+  products    Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  companyId   Int      @map("company_id")
+  categoryId  Int?     @map("category_id")
+  name        String
+  description String?  @db.Text
+  price       Decimal  @db.Decimal(10, 2)
+  taxRate     Decimal  @default(0) @db.Decimal(5, 2) @map("tax_rate")
+  unit        String?
+  image       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  company        Company         @relation(fields: [companyId], references: [id])
+  category       Category?       @relation(fields: [categoryId], references: [id])
+  quotationItems QuotationItem[]
+  invoiceItems   InvoiceItem[]
+
+  @@map("products")
+}
+
+// ─────────────────────────────────────────────
+// QUOTATIONS
+// ─────────────────────────────────────────────
+
+model Quotation {
+  id          Int      @id @default(autoincrement())
+  companyId   Int      @map("company_id")
+  clientId    Int      @map("client_id")
+  quoteNumber String   @unique @map("quote_number")
+  issueDate   DateTime @map("issue_date")
+  expiryDate  DateTime @map("expiry_date")
+  currency    String   @default("LSL")
+  subtotal    Decimal  @db.Decimal(10, 2)
+  discount    Decimal  @default(0) @db.Decimal(10, 2)
+  tax         Decimal  @default(0) @db.Decimal(10, 2)
+  total       Decimal  @db.Decimal(10, 2)
+  status      QuotationStatus @default(DRAFT)
+  docType     QuotationDocType @default(QUOTATION) @map("doc_type")
+  createdBy   Int      @map("created_by")
+  notes       String?  @db.Text
+  accentColor String?  @map("accent_color")
+  bgColor     String?  @map("bg_color")
+  fontColor   String?  @map("font_color")
+  fontFamily  String?  @map("font_family")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  company     Company         @relation(fields: [companyId], references: [id])
+  client      Client          @relation(fields: [clientId], references: [id])
+  items       QuotationItem[]
+  invoices    Invoice[]
+
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id           Int      @id @default(autoincrement())
+  quotationId  Int      @map("quotation_id")
+  productId    Int?     @map("product_id")
+  description  String
+  quantity     Decimal  @db.Decimal(10, 2)
+  unitPrice    Decimal  @db.Decimal(10, 2) @map("unit_price")
+  taxRate      Decimal  @default(0) @db.Decimal(5, 2) @map("tax_rate")
+  amount       Decimal  @db.Decimal(10, 2)
+
+  quotation    Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product      Product?  @relation(fields: [productId], references: [id])
+
+  @@map("quotation_items")
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  VIEWED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CONVERTED
+  CANCELLED
+}
+
+enum QuotationDocType {
+  QUOTATION
+  PROFORMA_INVOICE
+  SALES_ORDER
+}
+
+// ─────────────────────────────────────────────
+// INVOICES
+// ─────────────────────────────────────────────
+
+model Invoice {
+  id            Int      @id @default(autoincrement())
+  companyId     Int      @map("company_id")
+  clientId      Int      @map("client_id")
+  quotationId   Int?     @map("quotation_id")
+  invoiceNumber String   @unique @map("invoice_number")
+  issueDate     DateTime @map("issue_date")
+  dueDate       DateTime @map("due_date")
+  currency      String   @default("LSL")
+  subtotal      Decimal  @db.Decimal(10, 2)
+  tax           Decimal  @default(0) @db.Decimal(10, 2)
+  discount      Decimal  @default(0) @db.Decimal(10, 2)
+  total         Decimal  @db.Decimal(10, 2)
+  status        InvoiceStatus @default(DRAFT)
+  plannedSendDate DateTime? @map("planned_send_date")
+  notes         String?  @db.Text
+  accentColor   String?  @map("accent_color")
+  bgColor       String?  @map("bg_color")
+  fontColor     String?  @map("font_color")
+  fontFamily    String?  @map("font_family")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  company       Company       @relation(fields: [companyId], references: [id])
+  client        Client        @relation(fields: [clientId], references: [id])
+  quotation     Quotation?    @relation(fields: [quotationId], references: [id])
+  items         InvoiceItem[]
+  payments      Payment[]
+  receipts      Receipt[]
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          Int      @id @default(autoincrement())
+  invoiceId   Int      @map("invoice_id")
+  productId   Int?     @map("product_id")
+  description String
+  quantity    Decimal  @db.Decimal(10, 2)
+  price       Decimal  @db.Decimal(10, 2)
+  tax         Decimal  @default(0) @db.Decimal(10, 2)
+  amount      Decimal  @db.Decimal(10, 2)
+
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product     Product? @relation(fields: [productId], references: [id])
+
+  @@map("invoice_items")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  VIEWED
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+// ─────────────────────────────────────────────
+// PAYMENTS
+// ─────────────────────────────────────────────
+
+model Payment {
+  id            Int           @id @default(autoincrement())
+  paymentNumber String        @unique @map("payment_number")
+  companyId     Int           @map("company_id")
+  invoiceId     Int           @map("invoice_id")
+  clientId      Int           @map("client_id")
+  amount        Decimal       @db.Decimal(10, 2)
+  currency      String        @default("LSL")
+  paymentMethod PaymentMethod @map("payment_method")
+  reference     String?
+  paymentDate   DateTime      @map("payment_date")
+  notes         String?       @db.Text
+  recordedBy    Int?          @map("recorded_by")
+  isAutoGenerated Boolean     @default(false) @map("is_auto_generated")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  company       Company       @relation(fields: [companyId], references: [id])
+  invoice       Invoice       @relation(fields: [invoiceId], references: [id])
+  client        Client        @relation(fields: [clientId], references: [id])
+  receipt       Receipt?
+
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  CASH
+  BANK
+  CARD
+  MOBILE_MONEY
+  ONLINE
+}
+
+// ─────────────────────────────────────────────
+// RECEIPTS
+// ─────────────────────────────────────────────
+
+model Receipt {
+  id            Int      @id @default(autoincrement())
+  receiptNumber String   @unique @map("receipt_number")
+  companyId     Int      @map("company_id")
+  paymentId     Int      @unique @map("payment_id")
+  invoiceId     Int      @map("invoice_id")
+  clientId      Int      @map("client_id")
+  amount        Decimal  @db.Decimal(10, 2)
+  currency      String   @default("LSL")
+  balanceDue    Decimal  @db.Decimal(10, 2) @map("balance_due")
+  status        ReceiptStatus @default(ISSUED)
+  issuedBy      Int?     @map("issued_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  company       Company  @relation(fields: [companyId], references: [id])
+  payment       Payment  @relation(fields: [paymentId], references: [id])
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id])
+  client        Client   @relation(fields: [clientId], references: [id])
+
+  @@map("receipts")
+}
+
+enum ReceiptStatus {
+  ISSUED
+  VOIDED
+}
+
+// ─────────────────────────────────────────────
+// SUBSCRIPTIONS
+// ─────────────────────────────────────────────
+
+model Plan {
+  id           Int            @id @default(autoincrement())
+  name         String         @unique
+  price        Decimal        @db.Decimal(10, 2)
+  billingCycle String         @map("billing_cycle")
+  features     Json
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id        Int      @id @default(autoincrement())
+  companyId Int      @map("company_id")
+  planId    Int      @map("plan_id")
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+  status    String   @default("ACTIVE")
+
+  company   Company  @relation(fields: [companyId], references: [id])
+  plan      Plan     @relation(fields: [planId], references: [id])
+
+  @@map("subscriptions")
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS & AUDIT (LIGHTWEIGHT)
+// ─────────────────────────────────────────────
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  type      String   @default("INFO")
+  title     String
+  message   String   @db.Text
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  companyId Int      @map("company_id")
+  userId    Int      @map("user_id")
+  action    String
+  entity    String
+  entityId  Int      @map("entity_id")
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  company   Company  @relation(fields: [companyId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────
+// PROCUREMENT
+// ─────────────────────────────────────────────
+
+model Supplier {
+  id             Int      @id @default(autoincrement())
+  companyId      Int      @map("company_id")
+  name           String
+  contactPerson  String   @map("contact_person")
+  email          String?
+  phone          String?
+  address        String?
+  category       String?
+  productsServices String? @db.Text @map("products_services")
+  paymentTerms   String?  @map("payment_terms")
+  vatNumber      String?  @map("vat_number")
+  taxNumber      String?  @map("tax_number")
+  isPreferred    Boolean  @default(false) @map("is_preferred")
+  status         SupplierStatus @default(ACTIVE)
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  company          Company         @relation(fields: [companyId], references: [id])
+  rfqSuppliers     RFQSupplier[]
+  purchaseOrders   PurchaseOrder[]
+  supplierInvoices SupplierInvoice[]
+  contracts        Contract[]
+
+  @@map("suppliers")
+}
+
+enum SupplierStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model RFQ {
+  id           Int       @id @default(autoincrement())
+  companyId    Int       @map("company_id")
+  rfqNumber    String    @unique @map("rfq_number")
+  deliveryDate DateTime? @map("delivery_date")
+  currency     String    @default("LSL")
+  status       RFQStatus @default(DRAFT)
+  notes        String?   @db.Text
+  accentColor  String?   @map("accent_color")
+  bgColor      String?   @map("bg_color")
+  fontColor    String?   @map("font_color")
+  fontFamily   String?   @map("font_family")
+  awardedSupplierId Int? @map("awarded_supplier_id")
+  createdBy    Int       @map("created_by")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  company      Company      @relation(fields: [companyId], references: [id])
+  items        RFQItem[]
+  suppliers    RFQSupplier[]
+
+  @@map("rfqs")
+}
+
+model RFQItem {
+  id          Int     @id @default(autoincrement())
+  rfqId       Int     @map("rfq_id")
+  description String
+  quantity    Decimal @db.Decimal(10, 2)
+  unit        String?
+
+  rfq         RFQ     @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+
+  @@map("rfq_items")
+}
+
+model RFQSupplier {
+  id          Int      @id @default(autoincrement())
+  rfqId       Int      @map("rfq_id")
+  supplierId  Int      @map("supplier_id")
+  quotedPrice Decimal? @db.Decimal(10, 2) @map("quoted_price")
+  notes       String?  @db.Text
+  respondedAt DateTime? @map("responded_at")
+
+  rfq         RFQ      @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  supplier    Supplier @relation(fields: [supplierId], references: [id])
+
+  @@unique([rfqId, supplierId])
+  @@map("rfq_suppliers")
+}
+
+enum RFQStatus {
+  DRAFT
+  SENT
+  RESPONSES_RECEIVED
+  CLOSED
+  CANCELLED
+}
+
+// ─────────────────────────────────────────────
+// PURCHASE ORDERS
+// ─────────────────────────────────────────────
+
+model PurchaseOrder {
+  id              Int                 @id @default(autoincrement())
+  companyId       Int                 @map("company_id")
+  supplierId      Int                 @map("supplier_id")
+  rfqId           Int?                @map("rfq_id")
+  poNumber        String              @unique @map("po_number")
+  issueDate       DateTime            @map("issue_date")
+  expectedDate    DateTime?           @map("expected_date")
+  currency        String              @default("LSL")
+  subtotal        Decimal             @db.Decimal(10, 2)
+  tax             Decimal             @default(0) @db.Decimal(10, 2)
+  total           Decimal             @db.Decimal(10, 2)
+  status          PurchaseOrderStatus @default(DRAFT)
+  notes           String?             @db.Text
+  createdBy       Int                 @map("created_by")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  company         Company             @relation(fields: [companyId], references: [id])
+  supplier        Supplier            @relation(fields: [supplierId], references: [id])
+  items           PurchaseOrderItem[]
+  supplierInvoices SupplierInvoice[]
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              Int           @id @default(autoincrement())
+  purchaseOrderId Int           @map("purchase_order_id")
+  description     String
+  quantity        Decimal       @db.Decimal(10, 2)
+  unitPrice       Decimal       @db.Decimal(10, 2) @map("unit_price")
+  taxRate         Decimal       @default(0) @db.Decimal(5, 2) @map("tax_rate")
+  amount          Decimal       @db.Decimal(10, 2)
+  unit            String?
+
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@map("purchase_order_items")
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  APPROVED
+  SENT
+  PARTIALLY_RECEIVED
+  COMPLETED
+  CANCELLED
+}
+
+// ─────────────────────────────────────────────
+// SUPPLIER INVOICES
+// ─────────────────────────────────────────────
+
+model SupplierInvoice {
+  id              Int                   @id @default(autoincrement())
+  companyId       Int                   @map("company_id")
+  supplierId      Int                   @map("supplier_id")
+  purchaseOrderId Int?                  @map("purchase_order_id")
+  invoiceNumber   String                @map("invoice_number")
+  invoiceDate     DateTime              @map("invoice_date")
+  dueDate         DateTime              @map("due_date")
+  currency        String                @default("LSL")
+  amount          Decimal               @db.Decimal(10, 2)
+  tax             Decimal               @default(0) @db.Decimal(10, 2)
+  total           Decimal               @db.Decimal(10, 2)
+  status          SupplierInvoiceStatus @default(PENDING)
+  notes           String?               @db.Text
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+
+  company         Company               @relation(fields: [companyId], references: [id])
+  supplier        Supplier              @relation(fields: [supplierId], references: [id])
+  purchaseOrder   PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id])
+
+  @@map("supplier_invoices")
+}
+
+enum SupplierInvoiceStatus {
+  PENDING
+  APPROVED
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+// ─────────────────────────────────────────────
+// CONTRACTS
+// ─────────────────────────────────────────────
+
+model Contract {
+  id             Int            @id @default(autoincrement())
+  companyId      Int            @map("company_id")
+  supplierId     Int            @map("supplier_id")
+  contractNumber String         @unique @map("contract_number")
+  serviceType    String         @map("service_type")
+  startDate      DateTime       @map("start_date")
+  endDate        DateTime       @map("end_date")
+  renewalDate    DateTime?      @map("renewal_date")
+  value          Decimal?       @db.Decimal(10, 2)
+  currency       String         @default("LSL")
+  status         ContractStatus @default(ACTIVE)
+  notes          String?        @db.Text
+  accentColor    String?        @map("accent_color")
+  bgColor        String?        @map("bg_color")
+  fontColor      String?        @map("font_color")
+  fontFamily     String?        @map("font_family")
+  title          String?        @db.VarChar(255)
+  description    String?        @db.Text
+  billingFrequency String?      @map("billing_frequency")
+  paymentTerms   String?        @db.Text @map("payment_terms")
+  paymentDueDays Int?           @map("payment_due_days")
+  governingLaw   String?        @map("governing_law")
+  noticePeriod   Int?           @map("notice_period")
+  supplierRegNumber String?     @map("supplier_reg_number")
+  companyRegNumber  String?     @map("company_reg_number")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  company        Company        @relation(fields: [companyId], references: [id])
+  supplier       Supplier       @relation(fields: [supplierId], references: [id])
+
+  @@map("contracts")
+}
+
+enum ContractStatus {
+  ACTIVE
+  EXPIRING_SOON
+  EXPIRED
+  CANCELLED
+}
