@@ -37,7 +37,7 @@ export default async function InvoicesPage() {
   if (token) {
     try {
       const payload = await verifyToken(token);
-      invoices = await prisma.invoice.findMany({
+      invoices = (await prisma.invoice.findMany({
         where: { companyId: payload.companyId },
         orderBy: { createdAt: "desc" },
         select: {
@@ -45,7 +45,7 @@ export default async function InvoicesPage() {
           currency: true, issueDate: true, dueDate: true,
           client: { select: { companyName: true } },
         },
-      }) as typeof invoices;
+      })).map((inv) => ({ ...inv, total: Number(inv.total) }));
     } catch { /* middleware handles redirect */ }
   }
 

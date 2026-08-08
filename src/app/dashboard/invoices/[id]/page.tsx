@@ -57,7 +57,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
       : 0,
   }));
 
-  const canPay = [InvoiceStatus.SENT, InvoiceStatus.VIEWED, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE].includes(invoice.status);
+  const canPay = ([InvoiceStatus.SENT, InvoiceStatus.VIEWED, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE] as InvoiceStatus[]).includes(invoice.status);
 
   return (
     <div className="max-w-5xl space-y-5">

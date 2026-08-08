@@ -20,7 +20,7 @@ const ROUTE_PERMISSIONS: { prefix: string; permission: Permission; methods?: str
 // Routes only OWNER or ADMIN can access
 const ADMIN_ONLY_PREFIXES = ["/dashboard/settings", "/dashboard/users"];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));

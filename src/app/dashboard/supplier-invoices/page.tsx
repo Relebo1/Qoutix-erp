@@ -4,6 +4,11 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { Plus, FileText, ArrowRight } from "lucide-react";
 import { SupplierInvoiceStatus } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
+
+type SupplierInvoiceWithRelations = Prisma.SupplierInvoiceGetPayload<{
+  include: { supplier: { select: { name: true } }; purchaseOrder: { select: { poNumber: true } } };
+}>;
 
 const BADGE: Record<SupplierInvoiceStatus, string> = {
   PENDING:   "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400",
@@ -20,7 +25,7 @@ function fmt(v: number | string, currency: string) {
 export default async function SupplierInvoicesPage() {
   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
-  let invoices: Awaited<ReturnType<typeof prisma.supplierInvoice.findMany>> = [];
+  let invoices: SupplierInvoiceWithRelations[] = [];
 
   if (token) {
     try {

@@ -16,7 +16,7 @@ export default function ActivityFeed({ events }: { events: Event[] }) {
         <div className="space-y-4">
           {events.map((e, i) => (
             <div key={i} className="flex items-start gap-3">
-              <div className={`w-3 h-3 rounded-full flex-shrink-0 mt-0.5 ring-2 ring-offset-2 ${e.color}`} style={{ ringOffsetColor: "var(--bg-card)" }} />
+              <div className={`w-3 h-3 rounded-full flex-shrink-0 mt-0.5 ring-2 ring-offset-2 ${e.color}`} />
               <div>
                 <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{e.label}</p>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{new Date(e.date).toLocaleString()}</p>
