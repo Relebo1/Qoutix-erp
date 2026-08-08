@@ -85,7 +85,7 @@ export default function NewQuotePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId: Number(clientId), currency, issueDate, expiryDate, discount, notes, items, status, accentColor, bgColor, fontColor, fontFamily, logo, docType }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) { setError(data.error ?? "Failed to save"); return; }
       router.push("/dashboard/quotes");
     } finally { setSaving(false); }

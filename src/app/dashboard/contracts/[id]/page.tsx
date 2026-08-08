@@ -7,7 +7,7 @@ import { ChevronLeft, AlertTriangle } from "lucide-react";
 import { ContractStatus } from "@prisma/client";
 import ContractActions from "./ContractActions";
 import ContractDocument from "@/components/document/ContractDocument";
-import DownloadPdfButton from "@/components/document/DownloadPdfButton";
+import DocActions from "@/components/document/DocActions";
 
 const BADGE: Record<ContractStatus, string> = {
   ACTIVE:        "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400",
@@ -63,7 +63,13 @@ export default async function ContractDetailPage({ params }: { params: Promise<{
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <DownloadPdfButton docNumber={contract.contractNumber} />
+          <DocActions
+            docNumber={contract.contractNumber}
+            recipientEmail={contract.supplier.email ?? ""}
+            recipientName={contract.supplier.name}
+            subject={`Contract ${contract.contractNumber} — ${contract.serviceType}`}
+            body={`Dear ${contract.supplier.contactPerson || contract.supplier.name},\n\nPlease find attached Contract ${contract.contractNumber} for ${contract.serviceType}.\n\nKind regards,\n${company.name}`}
+          />
           <ContractActions contractId={contract.id} status={contract.status} />
         </div>
       </div>

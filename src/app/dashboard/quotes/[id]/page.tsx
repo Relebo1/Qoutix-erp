@@ -7,8 +7,9 @@ import { ChevronLeft } from "lucide-react";
 import { QuotationStatus, QuotationDocType } from "@prisma/client";
 import DocumentTemplate from "@/components/document/DocumentTemplate";
 import QuoteStatusActions from "./QuoteStatusActions";
-import DownloadPdfButton from "@/components/document/DownloadPdfButton";
+import DocActions from "@/components/document/DocActions";
 import ActivityFeed from "@/components/ActivityFeed";
+import EmailHistory from "@/components/EmailHistory";
 
 const BADGE: Record<QuotationStatus, string> = {
   DRAFT:     "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400",
@@ -68,7 +69,15 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
 
         {/* Actions */}
         <div className="flex items-center gap-2 flex-wrap">
-          <DownloadPdfButton docNumber={quote.quoteNumber} />
+          <DocActions
+            docNumber={quote.quoteNumber}
+            recipientEmail={quote.client.email ?? ""}
+            recipientName={quote.client.companyName}
+            subject={`${DOC_LABELS[quote.docType]} ${quote.quoteNumber} from ${quote.company.name}`}
+            body={`Dear ${quote.client.contactName || quote.client.companyName},\n\nPlease find attached ${DOC_LABELS[quote.docType]} ${quote.quoteNumber}.\n\nKind regards,\n${quote.company.name}`}
+            docType="QUOTATION"
+            docId={quote.id}
+          />
           <QuoteStatusActions quoteId={quote.id} status={quote.status} docType={quote.docType} />
         </div>
       </div>
@@ -128,6 +137,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
             quote.status === "CANCELLED" ? "bg-gray-500" : "bg-blue-500"
           }] : []),
         ]} />
+        <EmailHistory docType="QUOTATION" docId={quote.id} />
       </div>
       </div>
     </div>

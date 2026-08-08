@@ -1,14 +1,22 @@
 import { prisma } from "@/lib/prisma";
-import { InvoiceStatus, PaymentMethod } from "@prisma/client";
+import { InvoiceStatus, PaymentMethod, Prisma } from "@prisma/client";
 
-async function nextPaymentNumber(companyId: number): Promise<string> {
-  const count = await prisma.payment.count({ where: { companyId } });
-  return `PAY-${String(count + 1).padStart(6, "0")}`;
+type TX = Prisma.TransactionClient;
+
+async function nextPaymentNumber(companyId: number, tx: TX): Promise<string> {
+  const result = await tx.$queryRaw<{ max: bigint | null }[]>`
+    SELECT MAX(CAST(SUBSTRING(payment_number, 5) AS UNSIGNED)) as max
+    FROM payments WHERE company_id = ${companyId} AND payment_number LIKE 'PAY-%'
+  `;
+  return `PAY-${String(Number(result[0]?.max ?? 0) + 1).padStart(6, "0")}`;
 }
 
-async function nextReceiptNumber(companyId: number): Promise<string> {
-  const count = await prisma.receipt.count({ where: { companyId } });
-  return `REC-${String(count + 1).padStart(6, "0")}`;
+async function nextReceiptNumber(companyId: number, tx: TX): Promise<string> {
+  const result = await tx.$queryRaw<{ max: bigint | null }[]>`
+    SELECT MAX(CAST(SUBSTRING(receipt_number, 5) AS UNSIGNED)) as max
+    FROM receipts WHERE company_id = ${companyId} AND receipt_number LIKE 'REC-%'
+  `;
+  return `REC-${String(Number(result[0]?.max ?? 0) + 1).padStart(6, "0")}`;
 }
 
 interface RecordPaymentInput {
@@ -47,8 +55,9 @@ export async function recordPayment(input: RecordPaymentInput) {
       throw new Error(`Amount exceeds remaining balance of ${remaining.toFixed(2)}.`);
     }
 
-    const paymentNumber = await nextPaymentNumber(companyId);
-    const receiptNumber = await nextReceiptNumber(companyId);
+    // Both number generators use tx — safe inside the transaction
+    const paymentNumber = await nextPaymentNumber(companyId, tx);
+    const receiptNumber = await nextReceiptNumber(companyId, tx);
 
     const payment = await tx.payment.create({
       data: {
@@ -78,7 +87,6 @@ export async function recordPayment(input: RecordPaymentInput) {
       data: { status: newStatus },
     });
 
-    // Auto-create a Receipt for every payment
     const receipt = await tx.receipt.create({
       data: {
         receiptNumber,
@@ -110,7 +118,6 @@ export async function autoPayOnStatusChange(
 
   const alreadyPaid = invoice.payments.reduce((s, p) => s + Number(p.amount), 0);
   const remaining = Number(invoice.total) - alreadyPaid;
-
   if (remaining <= 0.001) return;
 
   await recordPayment({

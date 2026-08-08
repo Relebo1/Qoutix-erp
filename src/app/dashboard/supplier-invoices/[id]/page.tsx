@@ -7,7 +7,7 @@ import { ChevronLeft } from "lucide-react";
 import { SupplierInvoiceStatus } from "@prisma/client";
 import SIActions from "./SIActions";
 import DocumentTemplate from "@/components/document/DocumentTemplate";
-import DownloadPdfButton from "@/components/document/DownloadPdfButton";
+import DocActions from "@/components/document/DocActions";
 
 const BADGE: Record<SupplierInvoiceStatus, string> = {
   PENDING:   "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400",
@@ -62,7 +62,13 @@ export default async function SupplierInvoiceDetailPage({ params }: { params: Pr
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <DownloadPdfButton docNumber={invoice.invoiceNumber} />
+          <DocActions
+            docNumber={invoice.invoiceNumber}
+            recipientEmail={invoice.supplier.email ?? ""}
+            recipientName={invoice.supplier.name}
+            subject={`Supplier Invoice ${invoice.invoiceNumber}`}
+            body={`Dear ${invoice.supplier.contactPerson || invoice.supplier.name},\n\nPlease find attached Supplier Invoice ${invoice.invoiceNumber}.\n\nKind regards,\n${company.name}`}
+          />
           <SIActions invoiceId={invoice.id} status={invoice.status} />
         </div>
       </div>

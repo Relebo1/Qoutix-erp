@@ -15,30 +15,38 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const payload = await getPayload();
   if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id } = await params;
-  const contract = await prisma.contract.findFirst({
-    where: { id: Number(id), companyId: payload.companyId },
-    include: { supplier: true },
-  });
-
-  if (!contract) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ contract });
+  try {
+    const { id } = await params;
+    const contract = await prisma.contract.findFirst({
+      where: { id: Number(id), companyId: payload.companyId },
+      include: { supplier: true },
+    });
+    if (!contract) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ contract });
+  } catch (err: any) {
+    console.error("Contract GET error:", err);
+    return NextResponse.json({ error: "Failed to fetch contract" }, { status: 500 });
+  }
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const payload = await getPayload();
   if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id } = await params;
-  const { status } = await req.json();
+  try {
+    const { id } = await params;
+    const { status } = await req.json();
 
-  const contract = await prisma.contract.findFirst({ where: { id: Number(id), companyId: payload.companyId } });
-  if (!contract) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const contract = await prisma.contract.findFirst({ where: { id: Number(id), companyId: payload.companyId } });
+    if (!contract) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const updated = await prisma.contract.update({
-    where: { id: Number(id) },
-    data: { status: status as ContractStatus },
-  });
-
-  return NextResponse.json({ contract: updated });
+    const updated = await prisma.contract.update({
+      where: { id: Number(id) },
+      data: { status: status as ContractStatus },
+    });
+    return NextResponse.json({ contract: updated });
+  } catch (err: any) {
+    console.error("Contract PATCH error:", err);
+    return NextResponse.json({ error: err.message ?? "Failed to update contract" }, { status: 500 });
+  }
 }

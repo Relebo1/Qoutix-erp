@@ -36,9 +36,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Company name and contact name are required" }, { status: 400 });
   }
 
-  const client = await prisma.client.create({
-    data: { companyId, companyName, contactName, email: email || null, phone: phone || null, address: address || null, industry: industry || null, notes: notes || null },
-  });
-
-  return NextResponse.json({ client }, { status: 201 });
+  try {
+    const client = await prisma.client.create({
+      data: { companyId, companyName, contactName, email: email || null, phone: phone || null, address: address || null, industry: industry || null, notes: notes || null },
+    });
+    return NextResponse.json({ client }, { status: 201 });
+  } catch (err: any) {
+    console.error("Client create error:", err);
+    return NextResponse.json({ error: "Failed to create client" }, { status: 500 });
+  }
 }

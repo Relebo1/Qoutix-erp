@@ -19,6 +19,8 @@ model User {
   passwordHash       String         @map("password_hash")
   phone              String?
   emailVerified      Boolean        @default(false) @map("email_verified")
+  emailVerifyToken   String?        @map("email_verify_token")
+  emailVerifyExpiry  DateTime?      @map("email_verify_expiry")
   twoFactorEnabled   Boolean        @default(false) @map("two_factor_enabled")
   avatar             String?
   createdAt          DateTime       @default(now()) @map("created_at")
@@ -27,6 +29,7 @@ model User {
   companyUsers       CompanyUser[]
   notifications      Notification[]
   auditLogs          AuditLog[]
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
 }
@@ -71,6 +74,8 @@ model Company {
   receipts           Receipt[]
   subscriptions      Subscription[]
   auditLogs          AuditLog[]
+  quotationSequence  QuotationSequence?
+  emailLogs          EmailLog[]
 
   @@map("companies")
 }
@@ -687,4 +692,62 @@ enum ContractStatus {
   EXPIRING_SOON
   EXPIRED
   CANCELLED
+}
+
+// ─────────────────────────────────────────────
+// SEQUENCES (atomic per-company counters)
+// ─────────────────────────────────────────────
+
+model QuotationSequence {
+  companyId  Int @id @map("company_id")
+  lastNumber Int @default(0) @map("last_number")
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@map("quote_sequences")
+}
+
+// ─────────────────────────────────────────────
+// EMAIL LOGS
+// ─────────────────────────────────────────────
+
+model EmailLog {
+  id           Int      @id @default(autoincrement())
+  companyId    Int      @map("company_id")
+  userId       Int      @map("user_id")
+  docType      String   @map("doc_type")   // QUOTATION | INVOICE | PURCHASE_ORDER | RFQ
+  docId        Int      @map("doc_id")
+  docNumber    String   @map("doc_number")
+  sender       String
+  recipient    String
+  cc           String?
+  subject      String
+  status       EmailLogStatus @default(SENT)
+  sentAt       DateTime @default(now()) @map("sent_at")
+
+  company      Company  @relation(fields: [companyId], references: [id])
+
+  @@map("email_logs")
+}
+
+enum EmailLogStatus {
+  SENT
+  FAILED
+}
+
+// ─────────────────────────────────────────────
+// PASSWORD RESET
+// ─────────────────────────────────────────────
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
 }

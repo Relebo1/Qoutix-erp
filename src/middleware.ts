@@ -33,6 +33,10 @@ export async function middleware(req: NextRequest) {
     const payload = await verifyToken(token);
     const role = payload.role as UserRole;
 
+    // Block dashboard access for unverified emails
+    if (!payload.emailVerified && pathname.startsWith("/dashboard")) {
+      return NextResponse.redirect(new URL("/verify-email-sent", req.url));
+    }
     // Admin-only check
     if (ADMIN_ONLY_PREFIXES.some((p) => pathname.startsWith(p))) {
       if (role !== UserRole.OWNER && role !== UserRole.ADMIN) {

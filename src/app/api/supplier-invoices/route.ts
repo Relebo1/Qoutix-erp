@@ -38,26 +38,30 @@ export async function POST(req: NextRequest) {
   if (!amount || Number(amount) <= 0) return NextResponse.json({ error: "Amount must be greater than 0." }, { status: 400 });
 
   const taxAmount = Number(tax ?? 0);
-  const invoice = await prisma.supplierInvoice.create({
-    data: {
-      companyId: payload.companyId,
-      supplierId: Number(supplierId),
-      purchaseOrderId: purchaseOrderId ? Number(purchaseOrderId) : null,
-      invoiceNumber,
-      invoiceDate: invoiceDate ? new Date(invoiceDate) : new Date(),
-      dueDate: new Date(dueDate),
-      currency: currency ?? "LSL",
-      amount: Number(amount),
-      tax: taxAmount,
-      total: Number(amount) + taxAmount,
-      status: SupplierInvoiceStatus.PENDING,
-      notes: notes || null,
-    },
-    include: {
-      supplier: { select: { id: true, name: true } },
-      purchaseOrder: { select: { id: true, poNumber: true } },
-    },
-  });
-
-  return NextResponse.json({ invoice }, { status: 201 });
+  try {
+    const invoice = await prisma.supplierInvoice.create({
+      data: {
+        companyId: payload.companyId,
+        supplierId: Number(supplierId),
+        purchaseOrderId: purchaseOrderId ? Number(purchaseOrderId) : null,
+        invoiceNumber,
+        invoiceDate: invoiceDate ? new Date(invoiceDate) : new Date(),
+        dueDate: new Date(dueDate),
+        currency: currency ?? "LSL",
+        amount: Number(amount),
+        tax: taxAmount,
+        total: Number(amount) + taxAmount,
+        status: SupplierInvoiceStatus.PENDING,
+        notes: notes || null,
+      },
+      include: {
+        supplier: { select: { id: true, name: true } },
+        purchaseOrder: { select: { id: true, poNumber: true } },
+      },
+    });
+    return NextResponse.json({ invoice }, { status: 201 });
+  } catch (err: any) {
+    console.error("Supplier invoice create error:", err);
+    return NextResponse.json({ error: "Failed to create supplier invoice" }, { status: 500 });
+  }
 }

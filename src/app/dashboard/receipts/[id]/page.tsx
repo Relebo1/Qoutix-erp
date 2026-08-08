@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import DocumentTemplate from "@/components/document/DocumentTemplate";
-import DownloadPdfButton from "@/components/document/DownloadPdfButton";
+import DocActions from "@/components/document/DocActions";
 
 const METHOD_LABEL: Record<string, string> = {
   CASH: "Cash", BANK: "Bank Transfer", CARD: "Card",
@@ -76,7 +76,15 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
             </p>
           </div>
         </div>
-        {!isVoided && <DownloadPdfButton docNumber={receipt.receiptNumber} />}
+        {!isVoided && (
+          <DocActions
+            docNumber={receipt.receiptNumber}
+            recipientEmail={receipt.client.email ?? ""}
+            recipientName={receipt.client.companyName}
+            subject={`Receipt ${receipt.receiptNumber}`}
+            body={`Dear ${receipt.client.contactName || receipt.client.companyName},\n\nPlease find attached Receipt ${receipt.receiptNumber} for payment of ${receipt.currency} ${Number(receipt.amount).toLocaleString("en-LS", { minimumFractionDigits: 2 })}.\n\nKind regards,\n${receipt.company.name}`}
+          />
+        )}
       </div>
 
       {/* Linked documents */}

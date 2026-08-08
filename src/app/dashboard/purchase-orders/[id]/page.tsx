@@ -7,7 +7,8 @@ import { ChevronLeft, Plus } from "lucide-react";
 import { PurchaseOrderStatus } from "@prisma/client";
 import POActions from "./POActions";
 import DocumentTemplate from "@/components/document/DocumentTemplate";
-import DownloadPdfButton from "@/components/document/DownloadPdfButton";
+import DocActions from "@/components/document/DocActions";
+import EmailHistory from "@/components/EmailHistory";
 
 const BADGE: Record<PurchaseOrderStatus, string> = {
   DRAFT:              "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400",
@@ -44,7 +45,6 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
         supplier: true,
         items: true,
         supplierInvoices: { select: { id: true, invoiceNumber: true, total: true, status: true, dueDate: true } },
-        rfq: { select: { id: true, rfqNumber: true, status: true } },
       },
     }),
     prisma.company.findUnique({
@@ -54,6 +54,10 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
   ]);
 
   if (!order || !company) notFound();
+
+  const rfq = order.rfqId
+    ? await prisma.rFQ.findFirst({ where: { id: order.rfqId, companyId: payload.companyId }, select: { id: true, rfqNumber: true, status: true } })
+    : null;
 
   const lineItems = order.items.map((i) => ({
     description: i.description + (i.unit ? ` (${i.unit})` : ""),
@@ -84,7 +88,15 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <DownloadPdfButton docNumber={order.poNumber} />
+          <DocActions
+            docNumber={order.poNumber}
+            recipientEmail={order.supplier.email ?? ""}
+            recipientName={order.supplier.name}
+            subject={`Purchase Order ${order.poNumber}`}
+            body={`Dear ${order.supplier.contactPerson || order.supplier.name},\n\nPlease find attached Purchase Order ${order.poNumber}.\n\nKind regards,\n${company.name}`}
+            docType="PURCHASE_ORDER"
+            docId={order.id}
+          />
           <POActions poId={order.id} status={order.status} />
         </div>
       </div>
@@ -121,14 +133,14 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
         <div className="space-y-4">
 
           {/* Source RFQ */}
-          {order.rfq && (
+          {rfq && (
             <div className="rounded-xl border p-4 space-y-2" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border)" }}>
               <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Linked Documents</p>
-              <Link href={`/dashboard/rfqs/${order.rfq.id}`}
+              <Link href={`/dashboard/rfqs/${rfq.id}`}
                 className="flex items-center justify-between px-3 py-2 rounded-lg border hover:border-blue-400 transition-colors"
                 style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}>
-                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{order.rfq.rfqNumber}</span>
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400">{order.rfq.status.replace("_", " ")}</span>
+                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{rfq.rfqNumber}</span>
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400">{rfq.status.replace("_", " ")}</span>
               </Link>
             </div>
           )}
@@ -194,6 +206,7 @@ export default async function PurchaseOrderDetailPage({ params }: { params: Prom
               </div>
             )}
           </div>
+          <EmailHistory docType="PURCHASE_ORDER" docId={order.id} />
         </div>
       </div>
     </div>

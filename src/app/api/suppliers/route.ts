@@ -44,23 +44,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Name and contact person are required." }, { status: 400 });
   }
 
-  const supplier = await prisma.supplier.create({
-    data: {
-      companyId: payload.companyId,
-      name, contactPerson,
-      email: email || null,
-      phone: phone || null,
-      address: address || null,
-      category: category || null,
-      productsServices: productsServices || null,
-      paymentTerms: paymentTerms || null,
-      vatNumber: vatNumber || null,
-      taxNumber: taxNumber || null,
-      isPreferred: isPreferred ?? false,
-      notes: notes || null,
-      status: SupplierStatus.ACTIVE,
-    },
-  });
-
-  return NextResponse.json({ supplier }, { status: 201 });
+  try {
+    const supplier = await prisma.supplier.create({
+      data: {
+        companyId: payload.companyId,
+        name, contactPerson,
+        email: email || null,
+        phone: phone || null,
+        address: address || null,
+        category: category || null,
+        productsServices: productsServices || null,
+        paymentTerms: paymentTerms || null,
+        vatNumber: vatNumber || null,
+        taxNumber: taxNumber || null,
+        isPreferred: isPreferred ?? false,
+        notes: notes || null,
+        status: SupplierStatus.ACTIVE,
+      },
+    });
+    return NextResponse.json({ supplier }, { status: 201 });
+  } catch (err: any) {
+    console.error("Supplier create error:", err);
+    return NextResponse.json({ error: "Failed to create supplier" }, { status: 500 });
+  }
 }

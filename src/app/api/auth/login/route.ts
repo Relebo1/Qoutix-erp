@@ -28,6 +28,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
+  if (!user.emailVerified) {
+    return NextResponse.json({ error: "Please verify your email before signing in. Check your inbox for the verification link." }, { status: 403 });
+  }
+
   const companyUser = user.companyUsers[0];
   if (!companyUser) {
     return NextResponse.json({ error: "No active company found" }, { status: 403 });
@@ -40,6 +44,7 @@ export async function POST(req: NextRequest) {
     email: user.email,
     companyId: companyUser.companyId,
     role,
+    emailVerified: true,
   });
 
   const res = NextResponse.json({

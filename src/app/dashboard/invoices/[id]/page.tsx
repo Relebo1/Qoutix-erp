@@ -7,9 +7,10 @@ import { ChevronLeft, Receipt } from "lucide-react";
 import { InvoiceStatus } from "@prisma/client";
 import DocumentTemplate from "@/components/document/DocumentTemplate";
 import InvoiceStatusActions from "./InvoiceStatusActions";
-import DownloadPdfButton from "@/components/document/DownloadPdfButton";
+import DocActions from "@/components/document/DocActions";
 import ActivityFeed from "@/components/ActivityFeed";
 import PaymentPanel from "./PaymentPanel";
+import EmailHistory from "@/components/EmailHistory";
 
 const BADGE: Record<InvoiceStatus, string> = {
   DRAFT:     "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400",
@@ -76,7 +77,15 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <DownloadPdfButton docNumber={invoice.invoiceNumber} />
+          <DocActions
+            docNumber={invoice.invoiceNumber}
+            recipientEmail={invoice.client.email ?? ""}
+            recipientName={invoice.client.companyName}
+            subject={`Invoice ${invoice.invoiceNumber} from ${invoice.company.name}`}
+            body={`Dear ${invoice.client.contactName || invoice.client.companyName},\n\nPlease find attached Invoice ${invoice.invoiceNumber} for ${invoice.currency} ${Number(invoice.total).toLocaleString("en-LS", { minimumFractionDigits: 2 })}, due ${new Date(invoice.dueDate).toLocaleDateString()}.\n\nKind regards,\n${invoice.company.name}`}
+            docType="INVOICE"
+            docId={invoice.id}
+          />
           {invoice.status === InvoiceStatus.PAID && (
             <Link
               href={`/dashboard/invoices/${invoice.id}/receipt`}
@@ -211,6 +220,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
               invoice.status === "CANCELLED" ? "bg-gray-500" : "bg-blue-500"
             }] : []),
           ]} />
+          <EmailHistory docType="INVOICE" docId={invoice.id} />
         </div>
       </div>
     </div>

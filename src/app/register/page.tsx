@@ -37,7 +37,7 @@ export default function RegisterPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Registration failed"); return; }
-      router.push("/dashboard");
+      router.push("/verify-email-sent");
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {

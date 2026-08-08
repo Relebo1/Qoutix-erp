@@ -7,7 +7,8 @@ import { ChevronLeft, Trophy } from "lucide-react";
 import { RFQStatus } from "@prisma/client";
 import RFQActions from "./RFQActions";
 import DocumentTemplate from "@/components/document/DocumentTemplate";
-import DownloadPdfButton from "@/components/document/DownloadPdfButton";
+import DocActions from "@/components/document/DocActions";
+import EmailHistory from "@/components/EmailHistory";
 
 const BADGE: Record<RFQStatus, string> = {
   DRAFT:              "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400",
@@ -24,7 +25,7 @@ export default async function RFQDetailPage({ params }: { params: Promise<{ id: 
   if (!token) notFound();
 
   const payload = await verifyToken(token);
-  const [rfq, company] = await Promise.all([
+  const [rfq, company, purchaseOrders] = await Promise.all([
     prisma.rFQ.findFirst({
       where: { id: Number(id), companyId: payload.companyId },
       include: {
@@ -33,12 +34,15 @@ export default async function RFQDetailPage({ params }: { params: Promise<{ id: 
           include: { supplier: true },
           orderBy: { supplier: { name: "asc" } },
         },
-        purchaseOrders: { select: { id: true, poNumber: true, status: true, supplier: { select: { name: true } } } },
       },
     }),
     prisma.company.findUnique({
       where: { id: payload.companyId },
       select: { name: true, address: true, email: true, phone: true, logo: true, brandColor: true, brandBgColor: true },
+    }),
+    prisma.purchaseOrder.findMany({
+      where: { rfqId: Number(id), companyId: payload.companyId },
+      select: { id: true, poNumber: true, status: true, supplier: { select: { name: true } } },
     }),
   ]);
 
@@ -82,7 +86,15 @@ export default async function RFQDetailPage({ params }: { params: Promise<{ id: 
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <DownloadPdfButton docNumber={rfq.rfqNumber} />
+          <DocActions
+            docNumber={rfq.rfqNumber}
+            recipientEmail={awardedSupplier?.supplier.email ?? rfq.suppliers[0]?.supplier.email ?? ""}
+            recipientName={awardedSupplier?.supplier.name ?? "Suppliers"}
+            subject={`Request for Quotation ${rfq.rfqNumber}`}
+            body={`Dear Sir/Madam,\n\nPlease find attached Request for Quotation ${rfq.rfqNumber}. Kindly submit your quotation at your earliest convenience.\n\nKind regards,\n${company.name}`}
+            docType="RFQ"
+            docId={rfq.id}
+          />
           <RFQActions rfqId={rfq.id} status={rfq.status} />
         </div>
       </div>
@@ -95,8 +107,6 @@ export default async function RFQDetailPage({ params }: { params: Promise<{ id: 
             docLabel="REQUEST FOR QUOTATION"
             accentColor={rfq.accentColor ?? company.brandColor ?? "#111827"}
             bgColor={rfq.bgColor ?? company.brandBgColor ?? "#ffffff"}
-            fontColor={rfq.fontColor ?? "#111827"}
-            fontFamily={rfq.fontFamily ?? "'Segoe UI', Arial, sans-serif"}
             fontColor={rfq.fontColor ?? "#111827"}
             fontFamily={rfq.fontFamily ?? "'Segoe UI', Arial, sans-serif"}
             logo={company.logo ?? null}
@@ -121,10 +131,10 @@ export default async function RFQDetailPage({ params }: { params: Promise<{ id: 
         <div className="space-y-4">
 
         {/* Linked POs */}
-        {rfq.purchaseOrders.length > 0 && (
+        {purchaseOrders.length > 0 && (
           <div className="rounded-xl border p-4 space-y-2" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--border)" }}>
             <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Linked Documents</p>
-            {rfq.purchaseOrders.map((po) => (
+            {purchaseOrders.map((po) => (
               <Link key={po.id} href={`/dashboard/purchase-orders/${po.id}`}
                 className="flex items-center justify-between px-3 py-2 rounded-lg border hover:border-blue-400 transition-colors"
                 style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}>
@@ -226,6 +236,7 @@ export default async function RFQDetailPage({ params }: { params: Promise<{ id: 
           </div>
         </div>
         </div>
+        <EmailHistory docType="RFQ" docId={rfq.id} />
       </div>
     </div>
   );
